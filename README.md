@@ -21,10 +21,14 @@ cp .env.example .env
 # .env に Gemini API キーを設定
 ```
 
-### 外部ツール (動画生成時に必要)
+### 外部ツール
 
-- [pptx2png](https://github.com/nicjohnson145/pptx2png) — PPTX → PNG 変換
-- [ffmpeg](https://ffmpeg.org/) — 動画合成
+スクリーンショット (`bun run screenshot`) は環境に応じてバックエンドを自動選択します:
+
+- WSL + PowerPoint — PowerShell COM 経由（自動検出）
+- LibreOffice + pdftoppm — `apt install libreoffice poppler-utils`
+
+動画生成には [ffmpeg](https://ffmpeg.org/) が必要です。
 
 ## 使い方
 
@@ -41,6 +45,7 @@ bun run video         # スライド画像+音声 → MP4 動画生成（要 ffm
 ```
 ├── slides.yaml              # 全スライドの内容定義 + ナレーション原稿（単一ソース）
 ├── generate.ts              # メインエントリ（PPTX 生成）
+├── screenshot.ts            # PPTX → PNG 変換（PowerPoint/LibreOffice 自動選択）
 ├── tts.ts                   # Gemini TTS でナレーション生成
 ├── video.ts                 # スライド画像+音声 → MP4 動画生成
 ├── lib/
