@@ -1,0 +1,16 @@
+node_modules/
+bun.lock
+
+# Generated outputs
+*.pptx
+*.mp4
+output_images/*.png
+voice_output/*.wav
+
+# Secrets
+.env
+key.json
+
+# OS
+.DS_Store
+Thumbs.db

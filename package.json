@@ -1,0 +1,25 @@
+{
+  "name": "workshop-pre-video",
+  "module": "generate.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "generate": "bun run generate.ts",
+    "screenshot": "pptx2png presentation.pptx -o output_images -r 960x540",
+    "build": "bun run generate && bun run screenshot",
+    "tts": "bun run tts.ts",
+    "video": "bun run video.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@mdi/svg": "^7.4.47",
+    "jose": "^6.0.11",
+    "pptxgenjs": "^4.0.1",
+    "yaml": "^2"
+  }
+}
