@@ -18,38 +18,52 @@ const usedKeys = new Set<string>();
  * @returns APA in-text string, or the key as fallback on error
  */
 export function cite(key: string): string {
+  // 空キーはスキップ
+  if (!key) return "";
   usedKeys.add(key);
   const cached = cache.get(key);
   if (cached) return cached;
 
-  const result = Bun.spawnSync(["ref", "cite", key, "--in-text"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  try {
+    const result = Bun.spawnSync(["ref", "cite", key, "--in-text"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
-  const text = result.stdout.toString().trim();
-  if (result.exitCode !== 0 || !text) {
-    console.warn(`[cite] Failed to resolve @${key}: ${result.stderr.toString().trim()}`);
+    const text = result.stdout.toString().trim();
+    if (result.exitCode !== 0 || !text) {
+      console.warn(`[cite] Failed to resolve @${key}: ${result.stderr.toString().trim()}`);
+      const fallback = `(@${key})`;
+      cache.set(key, fallback);
+      return fallback;
+    }
+
+    cache.set(key, text);
+    return text;
+  } catch {
+    // ref コマンドが見つからない場合
     const fallback = `(@${key})`;
     cache.set(key, fallback);
     return fallback;
   }
-
-  cache.set(key, text);
-  return text;
 }
 
 /**
  * Resolve a citekey to full APA reference string.
  */
 function citeApa(key: string): string {
-  const result = Bun.spawnSync(["ref", "cite", key, "--style", "apa"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const text = result.stdout.toString().trim();
-  if (result.exitCode !== 0 || !text) return `@${key}`;
-  return text;
+  if (!key) return "";
+  try {
+    const result = Bun.spawnSync(["ref", "cite", key, "--style", "apa"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const text = result.stdout.toString().trim();
+    if (result.exitCode !== 0 || !text) return `@${key}`;
+    return text;
+  } catch {
+    return `@${key}`;
+  }
 }
 
 /**

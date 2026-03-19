@@ -1,230 +1,273 @@
 # ============================================================================
-# slides.yaml — スライドの内容・ナレーション原稿の一元管理ファイル
+# slides.yaml — Databricks View のキャッシュ仕様 技術説明資料
 #
-# 各スライドは `id` で識別される。TypeScript 側では getSlide(id) で内容を取得する。
-# レイアウト・スタイリングは pages/*.ts に定義されており、ここには純粋なコンテンツのみ記述。
-#
-# 構造:
-#   - id: スライドの一意識別子（pages/*.ts の getSlide() 呼び出しと対応）
-#   - title: スライドタイトル
-#   - narration: TTS で読み上げるナレーション原稿（省略可）
-#   - その他のフィールド: 各スライドのレイアウトに応じたデータ（cards, items, steps 等）
-#
-# ナレーション修正例:
-#   yq '(.slides[] | select(.id == "background")).narration = "新しいナレーション"' -i slides.yaml
+# 対象: Databricks 導入済みのお客様
+# テーマ: View 形式でデータを持つ場合、キャッシュがどのように動作するか（仕様説明）
+# 参照元: Databricks 公式ドキュメント (https://docs.databricks.com/)
 # ============================================================================
 
 slides:
   # --------------------------------------------------------------------------
   # タイトルスライド
-  # フィールド: title, subtitle, presenter, narration
   # --------------------------------------------------------------------------
   - id: title
     title: |-
-      サンプルプレゼンテーション
-      タイトルをここに記入
-    subtitle: プレゼンテーションのサブタイトル
-    presenter: 発表者名・所属・日付などをここに記入
+      Databricks View と
+      キャッシュの仕様
+    subtitle: View をクエリした際にキャッシュがどう動作するかを理解する
+    presenter: 株式会社○○ ソリューション部 ○○○○
     narration: |
-      ここにタイトルスライドのナレーション原稿を記載します。プレゼンテーションの導入として、視聴者への挨拶や概要を述べます。
+      本日は Databricks で View 形式でデータを保持した場合に、
+      キャッシュがどのように動作するかの仕様についてご説明いたします。
+      通常の View は物理データを持たず毎回再計算されますが、
+      Databricks には複数のキャッシュ層があり、それぞれ異なる形で View のクエリに作用します。
+      その挙動と無効化条件を正しく理解することが、パフォーマンス最適化の鍵となります。
 
   # --------------------------------------------------------------------------
-  # 背景・課題スライド（3カラムカード型）
-  # フィールド: title, subtitle, cards[].{heading, body, detail, cites[]}, narration
-  # cites にはパンドック形式の引用キーを指定（lib/cite.ts で解決）
+  # 背景・課題スライド
   # --------------------------------------------------------------------------
   - id: background
-    title: "背景：テーマを取り巻く現状"
-    subtitle: 解決すべき3つの課題
+    title: "前提：View の基本仕様"
+    subtitle: View はデータを持たない「保存されたクエリ」
     cards:
-      - heading: 課題1のタイトル
-        body: 課題1の概要を簡潔に記述
-        detail: 具体的なデータや事例を記載
+      - heading: 物理データ非保持
+        body: CREATE VIEW はクエリ定義をメタストアに登録するだけ
+        detail: "「Only the query text is registered to the metastore」"
         cites: []
-      - heading: 課題2のタイトル
-        body: 課題2の概要を簡潔に記述
-        detail: 具体的なデータや事例を記載
+      - heading: 毎回再計算される
+        body: SELECT のたびにソーステーブルに対してクエリが実行される
+        detail: View レベルの自動キャッシュは存在せず常に最新データが返される
         cites: []
-      - heading: 課題3のタイトル
-        body: 課題3の概要を簡潔に記述
-        detail: 具体的なデータや事例を記載
+      - heading: 4つのキャッシュ層
+        body: Databricks の4つのキャッシュが View のクエリ性能に影響
+        detail: 結果・ディスク・Spark Cache・Materialized View が各々異なる動作をする
         cites: []
     narration: |
-      ここに背景説明のナレーション原稿を記載します。3つの課題についてそれぞれ説明を行います。
+      まず View の基本仕様を確認します。
+      通常の View は物理データを一切保持しません。CREATE VIEW はクエリ定義をメタストアに登録するだけです。
+      View をクエリするたびに、定義されたクエリがソーステーブルに対して毎回実行されます。
+      View 自体にはキャッシュ機構はありませんが、Databricks の4つのキャッシュ層が間接的に作用します。
+      それぞれのキャッシュ層がどう動作するかを、次のスライド以降で詳しく見ていきます。
 
   # --------------------------------------------------------------------------
-  # ツール・手法紹介スライド（2カラム: 特徴一覧 + エビデンス）
-  # フィールド: title, subtitle, features[], evidence_heading, evidence[].{heading, body, cite}, figure?, url, narration
+  # 手法一覧スライド
   # --------------------------------------------------------------------------
   - id: notebooklm
-    title: ツール・手法の紹介
-    subtitle: ツール名やアプローチの概要
+    title: View に作用する4つのキャッシュ層
+    subtitle: 各層の動作レベルと永続性の違い
     features:
-      - 特徴1: 主要な機能や利点を記載
-      - 特徴2: 他の特徴を記載
-      - 特徴3: さらなる特徴を記載
-      - 特徴4: 補足情報や注意点
-    evidence_heading: 活用事例・エビデンス
-    # figure: figure.png          # assets/ 内の補足画像（省略可）
-    # figure_cite: ""              # 補足画像の引用キー（省略可）
+      - "結果キャッシュ: 同一クエリの結果を自動保持"
+      - "ディスクキャッシュ: Parquet を SSD にキャッシュ"
+      - "Spark Cache: CACHE TABLE でメモリ保持"
+      - "Materialized View: 物理テーブルとして永続保存"
+    evidence_heading: 動作レベルの違い
     evidence:
-      - heading: 活用事例1
-        body: 事例の概要を記載
+      - heading: クエリ結果レベル
+        body: 結果キャッシュと Spark Cache はクエリ出力をキャッシュ
         cite: ""
-      - heading: 活用事例2
-        body: 事例の概要を記載
+      - heading: ファイル I/O レベル
+        body: ディスクキャッシュは Parquet の読み込みをキャッシュ
         cite: ""
-      - heading: 活用事例3
-        body: 事例の概要を記載
+      - heading: テーブルレベル
+        body: Materialized View は結果を物理テーブルとして保存
         cite: ""
-    url: example.com
+    url: docs.databricks.com/en/sql/admin/query-caching.html
     narration: |
-      ここにツール・手法紹介のナレーション原稿を記載します。
+      View に作用するキャッシュは4つの層に分かれています。
+      クエリ結果キャッシュと Spark Cache は、クエリの出力結果そのものをキャッシュします。
+      ディスクキャッシュは、基盤テーブルの Parquet ファイルの読み込みをキャッシュします。
+      Materialized View は、クエリ結果を物理テーブルとして永続保存します。
+      動作するレベルが異なるため、それぞれの特性を正しく理解する必要があります。
 
   # --------------------------------------------------------------------------
-  # ステップ概要スライド（7ステップの一覧表示）
-  # フィールド: title, subtitle, steps[], note, narration
+  # ステップ概要スライド
   # --------------------------------------------------------------------------
   - id: steps-overview
-    title: ワークフローの全体像
-    subtitle: 実践する流れ
+    title: View のキャッシュ仕様 詳細解説
+    subtitle: 7つのトピックで理解するキャッシュの挙動
     steps:
-      - ステップ1のタイトル
-      - ステップ2のタイトル
-      - ステップ3のタイトル
-      - ステップ4のタイトル
-      - ステップ5のタイトル
-      - ステップ6のタイトル
-      - ステップ7のタイトル
-    note: ※ 各ステップの詳細は次のスライドで説明します
+      - View 種別ごとのキャッシュ特性
+      - クエリ結果キャッシュの自動動作
+      - Serverless リモート結果キャッシュ
+      - ディスクキャッシュが View に与える効果
+      - CACHE TABLE の内部動作
+      - キャッシュ無効化の条件一覧
+      - Materialized View の仕様と位置づけ
+    note: ※ 各トピックで「何が起きるか」の仕様を解説します
     narration: |
-      ここにステップ概要のナレーション原稿を記載します。
+      ここから7つのトピックで、各キャッシュ層が View に対してどう動作するかを解説します。
+      実装手順ではなく「何が起きるか」という仕様の観点でご説明します。
+      View の種別による違い、各キャッシュの自動動作、無効化条件、
+      そして Materialized View の位置づけまでを網羅します。
 
   # --------------------------------------------------------------------------
-  # 各ステップ詳細スライド（スクリーンショット付き）
-  # フィールド: title, screenshot, note, narration
-  # screenshot は screenshots/ ディレクトリ内のファイル名を指定
+  # 各ステップ詳細スライド
   # --------------------------------------------------------------------------
   - id: step-1
-    title: ステップ1のタイトル
+    title: View 種別ごとのキャッシュ特性
     screenshot: step-01.png
-    note: "ステップ1の補足説明"
+    note: "通常View / Temp View / Global Temp View はすべてデータ非保持 ― 参照: docs.databricks.com/en/views/index.html"
     narration: |
-      ステップ1のナレーション原稿をここに記載します。
+      Databricks には4種類の View があります。
+      通常の View、Temporary View、Global Temporary View、そして Materialized View です。
+      最初の3つはいずれもメタデータのみを保存し、物理データを持ちません。
+      通常の View はカタログに永続登録されますが、Temporary View はセッション終了で消滅します。
+      Global Temporary View はクラスター上の全セッションからアクセスできますが、現在は非推奨です。
+      Materialized View だけが唯一、クエリ結果を物理テーブルとして保存します。
 
   - id: step-2
-    title: ステップ2のタイトル
+    title: クエリ結果キャッシュの自動動作
     screenshot: step-02.png
-    note: ステップ2の補足説明
+    note: "SQL Warehouse が同一クエリ結果を自動保持。TTL は24時間 ― 参照: docs.databricks.com/en/sql/admin/query-caching.html"
     narration: |
-      ステップ2のナレーション原稿をここに記載します。
+      SQL Warehouse でクエリを実行すると、結果がローカルキャッシュに自動保存されます。
+      同一クエリが再実行された場合、基盤テーブルが未更新であればキャッシュから即座に結果が返されます。
+      View へのクエリも通常のテーブルクエリと同様にキャッシュ対象です。
+      キャッシュの TTL は24時間で、基盤テーブルが更新されると自動で無効化されます。
+      ただし、ローカルキャッシュは Warehouse の再起動で消失します。
 
   - id: step-3
-    title: ステップ3のタイトル
+    title: Serverless リモート結果キャッシュ
     screenshot: step-03.png
-    note: ステップ3の補足説明
+    note: "Serverless 専用。Warehouse 再起動後も保持。全 Warehouse で共有 ― 参照: docs.databricks.com/en/sql/admin/query-caching.html"
     narration: |
-      ステップ3のナレーション原稿をここに記載します。
+      Serverless SQL Warehouse には、ローカルキャッシュに加えてリモート結果キャッシュがあります。
+      リモートキャッシュはワークスペースのシステムデータとして永続化されるため、
+      Warehouse を停止・再起動しても結果が保持されます。
+      さらにワークスペース内の全 Warehouse からアクセス可能です。
+      クエリ実行時はローカルキャッシュを確認し、なければリモートキャッシュを確認、
+      それでもなければフレッシュクエリが実行されるという3段階のフローになります。
 
   - id: step-4
-    title: ステップ4のタイトル
+    title: ディスクキャッシュが View に与える効果
     screenshot: step-04.png
-    note: ステップ4の補足説明
+    note: "Parquet ファイルレベルで自動動作。View を意識せず基盤テーブルの I/O を高速化 ― 参照: docs.databricks.com/en/optimizations/disk-cache.html"
     narration: |
-      ステップ4のナレーション原稿をここに記載します。
+      ディスクキャッシュはリモートストレージの Parquet ファイルをローカル SSD にキャッシュする仕組みです。
+      これは View を意識しない、ファイル I/O レベルのキャッシュです。
+      View をクエリすると基盤テーブルの Parquet ファイルが読み込まれ、そのファイルが自動的にキャッシュされます。
+      2回目以降の同じファイルの読み込みはローカル SSD から行われるため、I/O が高速化されます。
+      基盤テーブルのファイルが変更された場合は自動検知して陳腐化エントリを無効化します。
+      なお、クラスター再起動でキャッシュは消失します。
 
   - id: step-5
-    title: ステップ5のタイトル
+    title: CACHE TABLE の内部動作
     screenshot: step-05.png
-    note: ステップ5の補足説明
+    note: "View 定義ではなくクエリ実行結果がキャッシュされる。基盤テーブル更新の自動反映なし ― 参照: docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-cache-cache-table.html"
     narration: |
-      ステップ5のナレーション原稿をここに記載します。
+      CACHE TABLE コマンドで View を指定すると、View の定義クエリが実行され、
+      その結果が Spark のインメモリキャッシュに保存されます。
+      キャッシュされるのは View の定義ではなく、クエリの実行結果です。
+      重要な注意点として、基盤テーブルが更新されても Spark Cache は自動で無効化されません。
+      データの鮮度を保つには手動で REFRESH TABLE を実行する必要があります。
+      また、このキャッシュは同一クラスター上の全 Spark セッションで共有されます。
 
   - id: step-6
-    title: ステップ6のタイトル
+    title: キャッシュ無効化の条件一覧
     screenshot: step-06.png
-    note: ステップ6の補足説明
+    note: "無効化トリガーはキャッシュ種別ごとに異なる。Spark Cache のみ手動管理が必要 ― 参照: docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-cache-refresh-table.html"
     narration: |
-      ステップ6のナレーション原稿をここに記載します。
+      キャッシュの無効化条件はキャッシュ種別ごとに異なります。
+      クエリ結果キャッシュは、基盤テーブルの更新と24時間の TTL 超過で自動無効化されます。
+      ディスクキャッシュは、ファイルの変更を自動検知して更新されます。
+      一方、Spark Cache は基盤テーブルが更新されても自動無効化されません。
+      手動で REFRESH TABLE または UNCACHE TABLE を実行する必要があります。
+      Warehouse やクラスターの再起動では、ローカルキャッシュ・ディスクキャッシュ・Spark Cache の
+      すべてが消失します。Serverless のリモート結果キャッシュのみ再起動後も生存します。
 
   - id: step-7
-    title: ステップ7のタイトル
+    title: Materialized View の仕様と位置づけ
     screenshot: step-07.png
-    note: ステップ7の補足説明
+    note: "唯一データを物理保持する View 種別。事前計算されたキャッシュとして機能 ― 参照: docs.databricks.com/en/views/materialized.html"
     narration: |
-      ステップ7のナレーション原稿をここに記載します。
+      Materialized View は唯一、クエリ結果を物理テーブルとして保存する View 種別です。
+      公式ドキュメントでは「通常の View がオンデマンドで結果を計算するのに対し、
+      Materialized View は結果をキャッシュし、ソーステーブルの変更に応じて更新する」と説明されています。
+      リフレッシュにはインクリメンタルとフルの2種類があり、コストモデルにより自動選択されます。
+      インクリメンタルリフレッシュには Delta テーブルの Row Tracking と Change Data Feed の有効化が必要です。
+      リフレッシュ間隔に依存するためリアルタイムではありませんが、
+      BI ダッシュボードや定期集計には最も適した選択肢です。
 
   # --------------------------------------------------------------------------
-  # リスクと品質管理スライド（2カラム: リスク + 対策）
-  # フィールド: title, risks_heading, risks[], solutions_heading, solutions[], banner, narration
+  # リスクと品質管理スライド
   # --------------------------------------------------------------------------
   - id: risks
-    title: リスクと品質管理
-    risks_heading: 留意すべきリスク
+    title: キャッシュ仕様の注意点
+    risks_heading: 見落としやすいポイント
     risks:
-      - heading: リスク1のタイトル
-        body: リスク1の説明
+      - heading: Spark Cache 非自動無効化
+        body: CACHE TABLE は基盤テーブル更新を反映しない。古いデータが返される可能性あり
         cites: []
-      - heading: リスク2のタイトル
-        body: リスク2の説明
+      - heading: ALTER VIEW 時の動作未定義
+        body: View 定義変更がキャッシュ無効化を起こすか公式ドキュメントに明示なし
         cites: []
-    solutions_heading: 対策のポイント
+    solutions_heading: 運用上の推奨事項
     solutions:
-      - heading: 対策1のタイトル
-        body: 対策1の説明
-      - heading: 対策2のタイトル
-        body: 対策2の説明
+      - heading: キャッシュ特性の把握
+        body: 自動無効化される層と手動管理が必要な層（Spark Cache）を区別する
+      - heading: 鮮度要件で選択
+        body: リアルタイム → 通常 View + 結果キャッシュ、定期更新 → Materialized View
         cites: []
-    banner: 重要なメッセージをここに記載
+    banner: キャッシュ種別ごとの無効化条件の違いを正しく理解することが重要です
     narration: |
-      ここにリスクと品質管理のナレーション原稿を記載します。
+      キャッシュ仕様で見落としやすいポイントを2つ挙げます。
+      まず Spark Cache は基盤テーブルの更新を自動反映しないため、古いデータが返されるリスクがあります。
+      また、ALTER VIEW によるキャッシュ無効化について公式ドキュメントに明示的な記述がありません。
+      運用上は、自動無効化されるキャッシュ層と手動管理が必要な層を区別することが重要です。
+      鮮度要件に応じて、通常 View と Materialized View を使い分けてください。
 
   # --------------------------------------------------------------------------
-  # 事前準備スライド（2x2 カード型チェックリスト）
-  # フィールド: title, subtitle, items[].{title, desc, url?, warning?}, narration
+  # 必要条件スライド
   # --------------------------------------------------------------------------
   - id: preparation
-    title: 事前準備のお願い
-    subtitle: 事前にご準備ください
+    title: 参照ドキュメント
+    subtitle: 公式ドキュメント URL 一覧
     items:
-      - title: 準備項目1
-        desc: 準備項目1の説明
-      - title: 準備項目2
-        desc: 準備項目2の説明
-        url: "https://example.com/"
-      - title: 準備項目3
-        desc: 準備項目3の説明
-      - title: 準備項目4
-        desc: 準備項目4の説明
-        warning: 注意事項があればここに記載
+      - title: View の概要
+        desc: View 種別の定義と基本仕様
+        url: "https://docs.databricks.com/en/views/index.html"
+      - title: クエリ結果キャッシュ
+        desc: SQL Warehouse のキャッシュ動作とリモートキャッシュ仕様
+        url: "https://docs.databricks.com/en/sql/admin/query-caching.html"
+      - title: ディスクキャッシュ
+        desc: Parquet ファイルの SSD キャッシュ仕様
+        url: "https://docs.databricks.com/en/optimizations/disk-cache.html"
+      - title: Materialized View
+        desc: 物理保存型 View の仕様とリフレッシュ動作
+        url: "https://docs.databricks.com/en/views/materialized.html"
     narration: |
-      ここに事前準備のナレーション原稿を記載します。
+      本日ご説明した内容の公式ドキュメント URL をまとめます。
+      View の概要、クエリ結果キャッシュ、ディスクキャッシュ、Materialized View の
+      各ドキュメントに詳細な仕様が記載されていますので、ぜひご参照ください。
 
   # --------------------------------------------------------------------------
-  # クロージングスライド（タイムライン + 締めメッセージ）
-  # フィールド: title, timeline[].{time, duration, desc}, closing_message, closing_sub, conference, narration
+  # クロージングスライド
   # --------------------------------------------------------------------------
   - id: closing
-    title: 当日の流れ
+    title: まとめ
     timeline:
-      - time: パート1
-        duration: 10分
-        desc: パート1の内容説明
-      - time: パート2
-        duration: 35分
-        desc: パート2の内容説明
-      - time: パート3
+      - time: View の基本仕様
+        duration: 5分
+        desc: View は物理データ非保持、毎回再計算という基本動作の確認
+      - time: キャッシュ層の解説
+        duration: 30分
+        desc: 4つのキャッシュ層の動作仕様と無効化条件
+      - time: Q&A
         duration: 15分
-        desc: パート3の内容説明
+        desc: ご質問・ディスカッション
     closing_message: |-
-      締めのメッセージをここに記載
-    closing_sub: 補足メッセージ
-    conference: イベント名・日付をここに記入
+      View のキャッシュ特性を理解し最適な設計を
+    closing_sub: ご不明点がございましたらお気軽にお問い合わせください
+    conference: Databricks 技術サポートセッション
     narration: |
-      ここにクロージングのナレーション原稿を記載します。
+      本日は Databricks の View におけるキャッシュの仕様についてご説明しました。
+      通常の View は物理データを持たず毎回再計算されますが、
+      クエリ結果キャッシュ、ディスクキャッシュ、Spark Cache がそれぞれ異なるレベルで作用します。
+      永続的なキャッシュが必要な場合は Materialized View が最適です。
+      各キャッシュ層の無効化条件の違いを理解して、適切な設計にお役立てください。
 
   # --------------------------------------------------------------------------
-  # 文献一覧スライド（自動生成 — cite() で参照された文献が一覧表示される）
+  # 文献一覧スライド（自動生成）
   # --------------------------------------------------------------------------
   - id: references
-    title: References
+    title: 参照ドキュメント一覧

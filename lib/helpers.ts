@@ -1,3 +1,4 @@
+import path from "path";
 import type PptxGenJS from "pptxgenjs";
 import type { Pres, Slide, TextProps } from "./types";
 import {
@@ -9,38 +10,50 @@ import {
 // Slide creation helpers
 // ═══════════════════════════════════════════════════════════
 
-/** Create a content slide with warm background and standard title bar. */
+/**
+ * コンテンツスライド — MACNICA テンプレート p5 準拠
+ *
+ * 構成:
+ *   - 背景画像（白地＋右端パープルグラデーションライン）
+ *   - タイトル（左寄せ、27pt 太字）
+ *   - MACNICA ロゴ（左下）
+ *   - コピーライト（左下ロゴ右隣）
+ */
 export function addContentSlide(pres: Pres, title: string): Slide {
   const slide = pres.addSlide();
 
-  // Warm cream background
-  slide.addShape(pres.ShapeType.rect, {
+  // ── 背景画像（テンプレート image6.jpg） ──
+  slide.addImage({
+    path: path.resolve("assets/macnica-content-bg.jpg"),
     x: 0, y: 0, w: SLIDE_W, h: SLIDE_H,
-    fill: { color: C.warmBg },
   });
 
-  // Title bar
-  slide.addShape(pres.ShapeType.rect, {
-    x: 0, y: 0, w: SLIDE_W, h: 1.05,
-    fill: { color: C.primary },
-  });
+  // ── タイトル（左寄せ、27pt 太字） ──
   slide.addText(title, {
-    x: MARGIN.left, y: 0.15, w: CONTENT_W, h: 0.75,
-    fontSize: FS.slideTitle, fontFace: FONT, color: C.white,
+    x: MARGIN.left, y: MARGIN.titleY, w: 12.05, h: 0.49,
+    fontSize: 27, fontFace: FONT, color: C.text,
     bold: true, align: "left", valign: "middle",
   });
 
-  // Accent stripe below title (slightly thicker)
-  slide.addShape(pres.ShapeType.rect, {
-    x: 0, y: 1.05, w: SLIDE_W, h: 0.08,
-    fill: { color: C.accent },
+  // ── MACNICA ロゴ（左下） ──
+  slide.addImage({
+    path: path.resolve("assets/macnica-logo.png"),
+    x: 0.21, y: MARGIN.footerY, w: 1.49, h: 0.46,
   });
 
-  // Thin accent line at bottom
-  slide.addShape(pres.ShapeType.rect, {
-    x: 0, y: SLIDE_H - 0.06, w: SLIDE_W, h: 0.06,
-    fill: { color: C.accent },
+  // ── コピーライト（ロゴ右隣、10pt） ──
+  slide.addText("\u00A9Macnica,Inc.", {
+    x: 1.73, y: 7.11, w: 1.6, h: 0.27,
+    fontSize: 10, fontFace: FONT, color: C.text,
+    align: "left", valign: "middle",
   });
+
+  // ── ページ番号（右下） ──
+  slide.slideNumber = {
+    x: 12.82, y: 7.17, w: 0.45, h: 0.17,
+    fontSize: 10, fontFace: FONT, color: C.text,
+    align: "center",
+  };
 
   return slide;
 }

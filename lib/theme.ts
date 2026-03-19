@@ -1,48 +1,55 @@
 import type PptxGenJS from "pptxgenjs";
 
 // ── Colors ──────────────────────────────────────────────
-// Contrast ratios (vs #FFFFFF) are noted for accessibility.
-// All white-on-color combos meet WCAG AA large-text (3:1+).
+// MACNICA テンプレート「タネA_white_conf無」準拠カラースキーム
 export const C = {
-  primary: "1E88E5",       // Material Blue 600 — 4.05:1 ✓
-  primaryLight: "64B5F6",  // Material Blue 300
-  accent: "FF9800",        // Material Orange 500
-  accentLight: "FFCC80",   // Orange 200
+  primary: "7F1084",       // MACNICA パープル（accent1）
+  primaryLight: "AE6CB0",  // ライトパープル（accent2）
+  accent: "FBAE40",        // オレンジゴールド（レイアウトアクセント）
+  accentLight: "CEA7D0",   // ペールパープル（accent3）
 
   white: "FFFFFF",
-  offWhite: "FAFBFE",
-  warmBg: "FFF9F2",        // warm cream for slide backgrounds
-  lightGray: "ECEFF1",
-  midGray: "B0BEC5",
-  darkGray: "546E7A",
-  text: "37474F",          // Blue Grey 800 — softer, friendly
+  offWhite: "FAFAFA",
+  warmBg: "FFFFFF",        // テンプレートは白背景
+  lightGray: "E0E0E0",
+  midGray: "A0A0A0",      // lt2
+  darkGray: "494949",     // dk1 — メインテキスト色
+  text: "494949",          // dk1 — テンプレートのテキスト色
   black: "000000",
 
-  // step colors — all ≥3:1 vs white for large-text AA
-  step1: "1E88E5",  // Blue 600  — 4.05:1
-  step2: "43A047",  // Green 600 — 3.05:1
-  step3: "AB47BC",  // Purple 400 — 3.54:1
-  step4: "EF6C00",  // Orange 800 — 3.06:1
-  step5: "E53935",  // Red 600   — 3.49:1
-  step6: "0097A7",  // Cyan 700  — 3.44:1
-  step7: "546E7A",  // BlueGrey 600 — 5.26:1
+  // step colors — テンプレートのアクセントカラーを活用
+  step1: "7F1084",  // パープル（accent1）
+  step2: "3B1E87",  // インディゴ（accent4）
+  step3: "547EBF",  // ブルー（レイアウトで使用）
+  step4: "FBAE40",  // オレンジゴールド
+  step5: "E60012",  // レッド（accent6）
+  step6: "AE6CB0",  // ライトパープル（accent2）
+  step7: "494949",  // ダークグレー（dk1）
 
-  // card backgrounds — pastel, cheerful
-  cardBlue: "E3F2FD",     // Blue 50
-  cardGreen: "E8F5E9",    // Green 50
-  cardOrange: "FFF3E0",   // Orange 50
-  cardPurple: "F3E5F5",   // Purple 50
-  cardCyan: "E0F7FA",     // Cyan 50
+  // card backgrounds — パープル系パステル
+  cardBlue: "EDE7F6",     // パープル系ライト
+  cardGreen: "F3E5F5",    // ペールパープル
+  cardOrange: "FFF3E0",   // ウォームライト
+  cardPurple: "F3E5F5",   // パープル 50
+  cardCyan: "EDE7F6",     // パープル系ライト
 
-  // chart
-  chartBlue: "42A5F5",
-  chartGreen: "66BB6A",
-  chartOrange: "FFA726",
+  // chart — テンプレートのアクセントカラー
+  chartBlue: "547EBF",
+  chartGreen: "AE6CB0",
+  chartOrange: "FBAE40",
+
+  // MACNICA テンプレート追加色
+  indigo: "3B1E87",       // accent4
+  yellow: "FFDA2A",       // accent5
+  red: "E60012",          // accent6
+  magenta: "B60081",      // ハイパーリンク色
+  blue: "547EBF",         // レイアウトブルー
 } as const;
 
 // ── Fonts ───────────────────────────────────────────────
-export const FONT_JP = "Meiryo";
-export const FONT_EN = "Arial";
+// MACNICA テンプレートは游ゴシック / 游ゴシック Light を使用
+export const FONT_JP = "Yu Gothic";
+export const FONT_EN = "Yu Gothic";
 export const FONT = FONT_JP;
 
 // ── Font sizes ──────────────────────────────────────────
@@ -61,15 +68,18 @@ export const SLIDE_W = 13.33;
 export const SLIDE_H = 7.5;
 
 // ── Common margins / positions ──────────────────────────
+// MACNICA テンプレート p5（05_タイトルとコンテンツ）準拠
 export const MARGIN = {
-  left: 0.6,
-  right: 0.6,
-  top: 0.4,
-  titleY: 0.3,
-  contentY: 1.3,
+  left: 0.64,
+  right: 0.62,
+  top: 0.60,
+  titleY: 0.60,
+  contentY: 1.28,
+  footerY: 6.91,     // フッター開始位置（ロゴ等）
 } as const;
 
-export const CONTENT_W = SLIDE_W - MARGIN.left - MARGIN.right;
+export const CONTENT_W = SLIDE_W - MARGIN.left - MARGIN.right; // ≈ 12.07"
+export const CONTENT_H = MARGIN.footerY - MARGIN.contentY;     // ≈ 5.63"
 
 // ── Line styles ─────────────────────────────────────────
 export const LINE_THIN: PptxGenJS.ShapeLineProps = { color: C.midGray, width: 0.5 };
